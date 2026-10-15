@@ -22,6 +22,9 @@ Launch from your app menu as **WorkBuddy AI**, or run:
 
 ## What it installs
 
+The installer checks common Ubuntu/Debian Electron runtime packages and uses `sudo apt-get install` for any missing packages when available.
+
+
 - WorkBuddy AI app under `~/.local/opt/workbuddy-ai`
 - launcher at `~/.local/bin/workbuddy-ai`
 - desktop entry at `~/.local/share/applications/workbuddy-ai.desktop`

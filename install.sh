@@ -25,18 +25,101 @@ if [ "${1:-}" = "--uninstall" ]; then
   exit 0
 fi
 
-[ -f "$HERE/files/workbuddy-ai-app.tar.zst" ] || die "missing files/workbuddy-ai-app.tar.zst"
+APP_ARCHIVE=""
+if [ -f "$HERE/files/workbuddy-ai-app.tar.gz" ]; then
+  APP_ARCHIVE="$HERE/files/workbuddy-ai-app.tar.gz"
+elif [ -f "$HERE/files/workbuddy-ai-app.tar.zst" ]; then
+  APP_ARCHIVE="$HERE/files/workbuddy-ai-app.tar.zst"
+else
+  die "missing files/workbuddy-ai-app.tar.gz"
+fi
 command -v tar >/dev/null || die "tar is required"
-command -v zstd >/dev/null || die "zstd is required. On Ubuntu: sudo apt-get install -y zstd"
+
+install_missing_deps() {
+  command -v apt-get >/dev/null 2>&1 || return 0
+  command -v dpkg-query >/dev/null 2>&1 || return 0
+
+  local missing=() chosen
+
+  add_dep() {
+    local installed=0 candidate="" pkg
+    for pkg in "$@"; do
+      if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
+        installed=1
+        break
+      fi
+      if [ -z "$candidate" ] && apt-cache show "$pkg" >/dev/null 2>&1; then
+        candidate="$pkg"
+      fi
+    done
+    if [ "$installed" -eq 0 ] && [ -n "$candidate" ]; then
+      missing+=("$candidate")
+    fi
+  }
+
+  add_dep libasound2t64 libasound2
+  add_dep libatk-bridge2.0-0
+  add_dep libatk1.0-0
+  add_dep libayatana-appindicator3-1
+  add_dep libcairo2
+  add_dep libcups2t64 libcups2
+  add_dep libdbus-1-3
+  add_dep libdrm2
+  add_dep libgbm1
+  add_dep libgtk-3-0t64 libgtk-3-0
+  add_dep libnspr4
+  add_dep libnss3
+  add_dep libpango-1.0-0
+  add_dep libsecret-1-0
+  add_dep libx11-6
+  add_dep libx11-xcb1
+  add_dep libxcb-dri3-0
+  add_dep libxcb1
+  add_dep libxcomposite1
+  add_dep libxdamage1
+  add_dep libxext6
+  add_dep libxfixes3
+  add_dep libxkbcommon0
+  add_dep libxrandr2
+  add_dep libxss1
+  add_dep xdg-utils
+  add_dep shared-mime-info
+  add_dep desktop-file-utils
+  add_dep ca-certificates
+
+  if [ "${#missing[@]}" -gt 0 ]; then
+    warn "missing runtime packages: ${missing[*]}"
+    if command -v sudo >/dev/null 2>&1; then
+      if [ -t 0 ]; then
+        log "installing missing runtime packages with apt (sudo may prompt)"
+        sudo apt-get update
+        sudo apt-get install -y "${missing[@]}"
+      elif sudo -n true >/dev/null 2>&1; then
+        log "installing missing runtime packages with apt"
+        sudo -n apt-get update
+        sudo -n apt-get install -y "${missing[@]}"
+      else
+        warn "cannot prompt for sudo in this shell. Run again from a terminal, or install: ${missing[*]}"
+      fi
+    else
+      warn "sudo not found. If launch fails, install: ${missing[*]}"
+    fi
+  fi
+}
 
 log "installing WorkBuddy AI international edition"
 log "prefix: $PREFIX"
 mkdir -p "$APP_DST" "$PREFIX/bin" "$DESKTOP_DIR" "$(dirname "$ICON_DST")" "$MIME_PKG_DIR"
 
-log "1/5 extracting application (~1 GB installed)"
+log "1/5 checking runtime dependencies and extracting application (~1 GB installed)"
+install_missing_deps
 rm -rf "$APP_DST"
 mkdir -p "$APP_DST"
-tar --zstd -xf "$HERE/files/workbuddy-ai-app.tar.zst" -C "$APP_DST"
+case "$APP_ARCHIVE" in
+  *.tar.gz)  tar -xzf "$APP_ARCHIVE" -C "$APP_DST" ;;
+  *.tar.zst) command -v zstd >/dev/null || die "zstd is required for this archive. Install it or use the .tar.gz package."; tar --zstd -xf "$APP_ARCHIVE" -C "$APP_DST" ;;
+  *) die "unsupported app archive: $APP_ARCHIVE" ;;
+esac
 chmod +x "$APP_DST/start.sh" "$APP_DST/electron" 2>/dev/null || true
 
 log "2/5 writing launcher $BIN_DST"
