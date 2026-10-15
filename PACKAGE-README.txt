@@ -8,7 +8,7 @@ Install
 
 1. Extract the archive:
 
-   tar --zstd -xf workbuddy-ai-linux-pack-5.5.2.37849279-x86_64.tar.zst
+   tar -xzf workbuddy-ai-linux-pack-5.5.2.37849279-x86_64-plug-and-play.tar.gz
    cd workbuddy-ai-linux-pack
 
 2. Install:
